@@ -1,0 +1,5 @@
+package com.fl.bug_out
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
