@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// 自定义滚动行为，支持鼠标拖拽
+class MouseDragScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+      };
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,14 +54,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Bug Out - 3D Gallery',
       theme: theme,
-      home: const FLHomePage(title: 'FL 3D Gallery'),
+      scrollBehavior: MouseDragScrollBehavior(),
+      home: const FLHomePage(),
     );
   }
 }
 
 class FLHomePage extends StatefulWidget {
-  const FLHomePage({super.key, required this.title});
-  final String title;
+  const FLHomePage({super.key});
 
   @override
   State<FLHomePage> createState() => _FLHomePageState();
@@ -57,7 +69,7 @@ class FLHomePage extends StatefulWidget {
 
 class _FLHomePageState extends State<FLHomePage> {
   static const int itemCount = 10; // 画廊数量为 10
-  final PageController _pageController = PageController(viewportFraction: 0.66, initialPage: 0);
+  final PageController _pageController = PageController(viewportFraction: 0.55, initialPage: 0);
 
   @override
   void dispose() {
@@ -78,7 +90,7 @@ class _FLHomePageState extends State<FLHomePage> {
 
         final Matrix4 transform = Matrix4.identity()
           ..setEntry(3, 2, 0.001) // 透视
-          ..translate(delta * 24.0) // ignore: deprecated_member_use
+          ..translate(delta * 20.0) // ignore: deprecated_member_use, 减小偏移量
           ..rotateY(rotationY);
 
         return Transform(
@@ -100,42 +112,20 @@ class _FLHomePageState extends State<FLHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: Text(widget.title),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-      ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Column(
-          children: [
-            const SizedBox(height: 48),
-            SizedBox(
-              height: 440,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: itemCount,
-                padEnds: true,
-                itemBuilder: (context, index) => _build3DCard(index),
-              ),
-            ),
-            const SizedBox(height: 20),
-            AnimatedBuilder(
-              animation: _pageController,
-              builder: (context, _) {
-                int current = _pageController.hasClients
-                    ? (_pageController.page ?? _pageController.initialPage).round()
-                    : _pageController.initialPage;
-                return Text(
-                  '${current + 1} / $itemCount',
-                  style: const TextStyle(color: Colors.white70),
-                );
-              },
-            ),
-            const Expanded(child: SizedBox.shrink()), // 其余内容暂为空白
-          ],
+      backgroundColor: const Color(0xFF000000),
+      body: ScrollConfiguration(
+        behavior: MouseDragScrollBehavior(),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: itemCount,
+            padEnds: true,
+            scrollDirection: Axis.horizontal,
+            dragStartBehavior: DragStartBehavior.start,
+            physics: const PageScrollPhysics(),
+            itemBuilder: (context, index) => _build3DCard(index),
+          ),
         ),
       ),
     );
@@ -150,15 +140,15 @@ class _GalleryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0A0A),
+          color: const Color(0xFFFFFFFF), // 明确设置为白色
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: Colors.grey.shade300, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: Colors.black.withValues(alpha: 0.3),
               offset: const Offset(0, 8),
               blurRadius: 20,
             ),
@@ -166,13 +156,18 @@ class _GalleryCard extends StatelessWidget {
         ),
         child: AspectRatio(
           aspectRatio: 3 / 4,
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Center(
-              // 内容暂为空白（占位）
-              child: Text(
-                '',
-                style: Theme.of(context).textTheme.bodyLarge,
+          child: Container(
+            color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                // 内容暂为空白（占位）
+                child: Text(
+                  '',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
+                  ),
+                ),
               ),
             ),
           ),
