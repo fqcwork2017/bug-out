@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 自定义滚动行为，支持鼠标拖拽
@@ -17,13 +18,15 @@ class MouseDragScrollBehavior extends MaterialScrollBehavior {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // 尝试进入沉浸式（移动端生效，浏览器表现有限）
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  if (!kIsWeb) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ));
+  }
 
   runApp(
     const ProviderScope(
@@ -47,6 +50,12 @@ class MyApp extends StatelessWidget {
       colorScheme: const ColorScheme.dark(
         surface: Color(0xFF000000),
         primary: Color(0xFF000000),
+      ),
+      // 使用系统字体，避免从外部加载 Roboto
+      textTheme: ThemeData.dark().textTheme.apply(
+        fontFamily: kIsWeb 
+          ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+          : null,
       ),
     );
 
@@ -85,22 +94,32 @@ class _FLHomePageState extends State<FLHomePage> {
             ? (_pageController.page ?? _pageController.initialPage.toDouble())
             : _pageController.initialPage.toDouble();
         final double delta = (index - page);
-        final double rotationY = (delta.clamp(-1.0, 1.0)) * 0.8;
+        // 进一步减小旋转角度，避免圆角变形
+        final double rotationY = (delta.clamp(-1.0, 1.0)) * 0.5;
         final double scale = (1 - (delta.abs() * 0.12)).clamp(0.88, 1.0);
 
         final Matrix4 transform = Matrix4.identity()
-          ..setEntry(3, 2, 0.001) // 透视
+          ..setEntry(3, 2, 0.0006) // 进一步调整透视参数，减少变形
           ..translate(delta * 20.0) // ignore: deprecated_member_use, 减小偏移量
           ..rotateY(rotationY);
 
-        return Transform(
-          transform: transform,
-          alignment: Alignment.center,
-          child: Opacity(
-            opacity: (1 - (delta.abs() * 0.25)).clamp(0.4, 1.0),
-            child: Transform.scale(
-              scale: scale,
-              child: child,
+        return RepaintBoundary(
+          // 使用 RepaintBoundary 优化渲染性能
+          child: ClipRRect(
+            // 在变换之前裁剪，确保圆角在 3D 变换时保持正确
+            borderRadius: BorderRadius.circular(16),
+            child: Transform(
+              transform: transform,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high, // 提高渲染质量
+              child: Opacity(
+                opacity: (1 - (delta.abs() * 0.25)).clamp(0.4, 1.0),
+                child: Transform.scale(
+                  scale: scale,
+                  filterQuality: FilterQuality.high, // 提高渲染质量
+                  child: child,
+                ),
+              ),
             ),
           ),
         );
@@ -138,13 +157,16 @@ class _GalleryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double borderRadius = 16.0; // 统一的圆角值
+    
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
         width: double.infinity,
+        clipBehavior: Clip.antiAlias, // 确保圆角正确裁剪
         decoration: BoxDecoration(
           color: const Color(0xFFFFFFFF), // 明确设置为白色
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
           border: Border.all(color: Colors.grey.shade300, width: 1),
           boxShadow: [
             BoxShadow(
@@ -156,16 +178,24 @@ class _GalleryCard extends StatelessWidget {
         ),
         child: AspectRatio(
           aspectRatio: 3 / 4,
-          child: Container(
-            color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Center(
-                // 内容暂为空白（占位）
-                child: Text(
-                  '',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
+          child: ClipRRect(
+            // 确保内部内容也遵循圆角
+            borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
+            child: Container(
+              clipBehavior: Clip.antiAlias, // 确保内部圆角正确裁剪
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
+                borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  // 内容暂为空白（占位）
+                  child: Text(
+                    '',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
+                    ),
                   ),
                 ),
               ),
