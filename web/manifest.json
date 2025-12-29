@@ -1,6 +1,6 @@
 {
-    "name": "bug_out",
-    "short_name": "bug_out",
+    "name": "Bug Out",
+    "short_name": "Bug Out",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

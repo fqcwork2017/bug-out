@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.fl" "\0"
-            VALUE "FileDescription", "bug_out" "\0"
+            VALUE "FileDescription", "Bug Out" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "bug_out" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.fl. All rights reserved." "\0"
             VALUE "OriginalFilename", "bug_out.exe" "\0"
-            VALUE "ProductName", "bug_out" "\0"
+            VALUE "ProductName", "Bug Out" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
