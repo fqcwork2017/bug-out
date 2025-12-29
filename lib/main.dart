@@ -167,20 +167,22 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
       backgroundColor: const Color(0xFF000000),
       body: ScrollConfiguration(
         behavior: MouseDragScrollBehavior(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 画廊区域 - 固定高度
-            Padding(
-              padding: EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
-                top: isMobile ? 0.0 : 20.0,
-              ),
-              child: SizedBox(
-                height: galleryHeight,
-                child: NotificationListener<ScrollEndNotification>(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 画廊区域 - 固定高度，居中
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 20.0,
+                  right: 20.0,
+                  top: isMobile ? 0.0 : 20.0,
+                ),
+                child: SizedBox(
+                  height: galleryHeight,
+                  width: double.infinity,
+                  child: NotificationListener<ScrollEndNotification>(
                   onNotification: (notification) {
                     // 当滚动结束时，自动居中到最近的页面
                     if (_pageController.hasClients) {
@@ -207,17 +209,18 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                     physics: const PageScrollPhysics(),
                     itemBuilder: (context, index) => _build3DCard(index),
                   ),
+                  ),
                 ),
               ),
-            ),
-            // 文字区域 - 紧贴画廊，无任何间距
-            Padding(
-              padding: EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
-                bottom: isMobile ? 0.0 : 8.0,
-              ),
-              child: _ColorizeWaveText(
+              // 文字区域 - 距离画廊15，居中显示
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 20.0,
+                  right: 20.0,
+                  top: 15.0, // 画廊和文案之间的间距
+                  bottom: isMobile ? 0.0 : 8.0,
+                ),
+                child: _ColorizeWaveText(
                 text: 'Mercedes-Benz W126',
                 animationController: _textAnimationController,
                 textStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -253,9 +256,10 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
