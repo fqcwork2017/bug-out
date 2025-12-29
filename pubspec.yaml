@@ -79,6 +79,9 @@ dependencies:
   # 视频播放器
   video_player: ^2.9.2
 
+  # 动画文本
+  animated_text_kit: ^4.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

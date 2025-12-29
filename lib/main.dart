@@ -77,13 +77,25 @@ class FLHomePage extends StatefulWidget {
   State<FLHomePage> createState() => _FLHomePageState();
 }
 
-class _FLHomePageState extends State<FLHomePage> {
+class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   static const int itemCount = 10; // 画廊数量为 10
   final PageController _pageController = PageController(viewportFraction: 0.55, initialPage: 0);
+  late AnimationController _textAnimationController;
+
+  @override
+  void initState() {
+    super.initState();
+    // 动画时长：基础动画5秒 + 暂停1秒 = 6秒
+    _textAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 6000), // 进一步减慢动画速度，包含1秒暂停
+    )..repeat();
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _textAnimationController.dispose();
     super.dispose();
   }
 
@@ -135,17 +147,78 @@ class _FLHomePageState extends State<FLHomePage> {
       backgroundColor: const Color(0xFF000000),
       body: ScrollConfiguration(
         behavior: MouseDragScrollBehavior(),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: itemCount,
-            padEnds: true,
-            scrollDirection: Axis.horizontal,
-            dragStartBehavior: DragStartBehavior.start,
-            physics: const PageScrollPhysics(),
-            itemBuilder: (context, index) => _build3DCard(index),
-          ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: MediaQuery.of(context).size.height < 700 ? 0.0 : 20.0, // 手机端移除上下间距，让画廊占满
+                ),
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: itemCount,
+                  padEnds: true,
+                  scrollDirection: Axis.horizontal,
+                  dragStartBehavior: DragStartBehavior.start,
+                  physics: const PageScrollPhysics(),
+                  itemBuilder: (context, index) => _build3DCard(index),
+                ),
+              ),
+            ),
+            // 画廊下方中央文案
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).size.height < 700 ? 0.0 : 16.0, // 手机端紧挨画廊
+              ),
+              child: _CharacterByCharacterColorizeText(
+                text: 'Mercedes-Benz W126',
+                animationController: _textAnimationController,
+                textStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 3.0,
+                  fontSize: MediaQuery.of(context).size.width < 600 ? 22 : 28, // 手机端减小字体
+                  shadows: [
+                    Shadow(
+                      blurRadius: 10.0,
+                      color: Colors.grey.shade400,
+                      offset: Offset(0, 0),
+                    ),
+                    Shadow(
+                      blurRadius: 20.0,
+                      color: Colors.grey.shade600,
+                      offset: Offset(0, 0),
+                    ),
+                  ],
+                ) ?? TextStyle(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 3.0,
+                  fontSize: MediaQuery.of(context).size.width < 600 ? 22 : 28,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 10.0,
+                      color: Colors.grey,
+                      offset: Offset(0, 0),
+                    ),
+                    Shadow(
+                      blurRadius: 20.0,
+                      color: Colors.grey,
+                      offset: Offset(0, 0),
+                    ),
+                  ],
+                ),
+                colors: [
+                  Colors.white,
+                  Colors.grey.shade100,
+                  Colors.grey.shade600,
+                  Colors.white,
+                  Colors.grey.shade500,
+                  Colors.grey.shade200,
+                  Colors.white,
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -283,6 +356,113 @@ class _GalleryCardState extends State<_GalleryCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// 从左到右逐个字符变化的颜色动画组件
+class _CharacterByCharacterColorizeText extends StatelessWidget {
+  final String text;
+  final AnimationController animationController;
+  final TextStyle textStyle;
+  final List<Color> colors;
+
+  const _CharacterByCharacterColorizeText({
+    required this.text,
+    required this.animationController,
+    required this.textStyle,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animationController,
+      builder: (context, child) {
+        return Text.rich(
+          TextSpan(
+            children: List.generate(text.length, (index) {
+              final double rawValue = animationController.value;
+              final bool isLastChar = index == text.length - 1;
+              
+              Color currentColor;
+              double intensity;
+              
+              if (rawValue >= 5.0 / 6.0) {
+                // 暂停阶段：所有字符都是白色（最后1/6的时间，即1秒）
+                intensity = 1.0;
+                currentColor = Colors.white;
+              } else {
+                // 波浪动画阶段
+                final double waveDuration = 4.0 / 6.0; // 波浪动画占4/6的时间
+                final int totalChars = text.length;
+                final int waveChars = totalChars - 1; // 除最后一个字外的字符数
+                
+                if (isLastChar) {
+                  // 最后一个字：当其他字都变白后才开始变白
+                  final double lastCharStartTime = waveDuration * 0.85; // 在85%时开始变白
+                  
+                  if (rawValue < lastCharStartTime) {
+                    // 最后一个字保持银色
+                    intensity = 0.0;
+                    currentColor = Colors.grey.shade400;
+                  } else {
+                    // 最后一个字开始变白
+                    final double lastCharProgress = (rawValue - lastCharStartTime) / (5.0 / 6.0 - lastCharStartTime);
+                    intensity = lastCharProgress.clamp(0.0, 1.0);
+                    currentColor = Color.lerp(
+                      Colors.grey.shade400,
+                      Colors.white,
+                      intensity,
+                    )!;
+                  }
+                } else {
+                  // 除最后一个字外：每个字在特定时间段变白，下一个字开始时立即变回银色
+                  // 计算每个字符变白的开始时间和持续时间
+                  final double charStartProgress = index / waveChars; // 从左到右的顺序
+                  final double charDuration = 1.0 / waveChars; // 每个字符占用的时间比例
+                  final double charStartTime = charStartProgress * waveDuration;
+                  final double charEndTime = charStartTime + charDuration * waveDuration;
+                  
+                  if (rawValue < charStartTime) {
+                    // 还没轮到，保持银色
+                    intensity = 0.0;
+                    currentColor = Colors.grey.shade400;
+                  } else if (rawValue >= charEndTime) {
+                    // 已经过了变白时间，立即变回银色
+                    intensity = 0.0;
+                    currentColor = Colors.grey.shade400;
+                  } else {
+                    // 变白过程中
+                    final double charProgress = (rawValue - charStartTime) / (charEndTime - charStartTime);
+                    intensity = charProgress.clamp(0.0, 1.0);
+                    currentColor = Color.lerp(
+                      Colors.grey.shade400, // 银色
+                      Colors.white, // 白色
+                      intensity,
+                    )!;
+                  }
+                }
+              }
+
+              return TextSpan(
+                text: text[index],
+                style: textStyle.copyWith(
+                  color: currentColor,
+                  shadows: [
+                    Shadow(
+                      blurRadius: 8.0 * intensity,
+                      color: Colors.white.withOpacity(intensity * 0.8),
+                      offset: Offset(0, 0),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          textAlign: TextAlign.center,
+        );
+      },
     );
   }
 }
