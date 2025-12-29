@@ -155,14 +155,33 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                   horizontal: 20.0,
                   vertical: MediaQuery.of(context).size.height < 700 ? 0.0 : 20.0, // 手机端移除上下间距，让画廊占满
                 ),
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: itemCount,
-                  padEnds: true,
-                  scrollDirection: Axis.horizontal,
-                  dragStartBehavior: DragStartBehavior.start,
-                  physics: const PageScrollPhysics(),
-                  itemBuilder: (context, index) => _build3DCard(index),
+                child: NotificationListener<ScrollEndNotification>(
+                  onNotification: (notification) {
+                    // 当滚动结束时，自动居中到最近的页面
+                    if (_pageController.hasClients) {
+                      final double currentPage = _pageController.page ?? 0.0;
+                      final int targetPage = currentPage.round().clamp(0, itemCount - 1);
+                      
+                      // 如果当前页面与目标页面不一致，则滚动到目标页面
+                      if (targetPage != currentPage.round()) {
+                        _pageController.animateToPage(
+                          targetPage,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    }
+                    return true;
+                  },
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: itemCount,
+                    padEnds: true,
+                    scrollDirection: Axis.horizontal,
+                    dragStartBehavior: DragStartBehavior.start,
+                    physics: const PageScrollPhysics(),
+                    itemBuilder: (context, index) => _build3DCard(index),
+                  ),
                 ),
               ),
             ),
