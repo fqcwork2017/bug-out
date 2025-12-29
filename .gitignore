@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Video files (uncomment if you don't want to commit videos to git)
+# *.mp4
+# *.mov
+# *.avi
+# *.mkv
+# *.webm
+# *.flv
+# *.m4v

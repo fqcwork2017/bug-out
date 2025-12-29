@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 // 自定义滚动行为，支持鼠标拖拽
 class MouseDragScrollBehavior extends MaterialScrollBehavior {
@@ -151,9 +152,49 @@ class _FLHomePageState extends State<FLHomePage> {
   }
 }
 
-class _GalleryCard extends StatelessWidget {
+class _GalleryCard extends StatefulWidget {
   final int index;
   const _GalleryCard({required this.index});
+
+  @override
+  State<_GalleryCard> createState() => _GalleryCardState();
+}
+
+class _GalleryCardState extends State<_GalleryCard> {
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 第一个 item (index == 0) 加载视频
+    if (widget.index == 0) {
+      _initializeVideo();
+    }
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _videoController = VideoPlayerController.asset('assets/videos/w126_city.mp4');
+      await _videoController!.initialize();
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+        // 自动播放并循环
+        _videoController!.setLooping(true);
+        _videoController!.play();
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,25 +222,64 @@ class _GalleryCard extends StatelessWidget {
           child: ClipRRect(
             // 确保内部内容也遵循圆角
             borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
-            child: Container(
-              clipBehavior: Clip.antiAlias, // 确保内部圆角正确裁剪
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
-                borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  // 内容暂为空白（占位）
-                  child: Text(
-                    '',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            child: widget.index == 0 && _isVideoInitialized && _videoController != null
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 视频播放器
+                      FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: _videoController!.value.size.width,
+                          height: _videoController!.value.size.height,
+                          child: VideoPlayer(_videoController!),
+                        ),
+                      ),
+                      // 点击控制播放/暂停
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_videoController!.value.isPlaying) {
+                              _videoController!.pause();
+                            } else {
+                              _videoController!.play();
+                            }
+                          });
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                        ),
+                      ),
+                    ],
+                  )
+                : widget.index == 0 && !_isVideoInitialized
+                    ? Container(
+                        color: Colors.black,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        clipBehavior: Clip.antiAlias, // 确保内部圆角正确裁剪
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
+                          borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Center(
+                            // 内容暂为空白（占位）
+                            child: Text(
+                              '',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
           ),
         ),
       ),
