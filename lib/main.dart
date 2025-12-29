@@ -79,12 +79,20 @@ class FLHomePage extends StatefulWidget {
 
 class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   static const int itemCount = 10; // 画廊数量为 10
-  final PageController _pageController = PageController(viewportFraction: 0.55, initialPage: 0);
+  late PageController _pageController;
   late AnimationController _textAnimationController;
 
   @override
   void initState() {
     super.initState();
+    // 根据屏幕高度判断是否是手机端，手机端使用0.68，其他端使用0.55
+    final double screenHeight = WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.height /
+        WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+    final bool isMobile = screenHeight < 700;
+    _pageController = PageController(
+      viewportFraction: isMobile ? 0.68 : 0.55,
+      initialPage: 0,
+    );
     // 动画时长：基础动画5秒 + 暂停1秒 = 6秒
     _textAnimationController = AnimationController(
       vsync: this,
@@ -175,8 +183,8 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
               // 画廊区域 - 固定高度，居中
               Padding(
                 padding: EdgeInsets.only(
-                  left: 20.0,
-                  right: 20.0,
+                  left: isMobile ? 0.0 : 20.0,
+                  right: isMobile ? 0.0 : 20.0,
                   top: isMobile ? 0.0 : 20.0,
                 ),
                 child: SizedBox(
