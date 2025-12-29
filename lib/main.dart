@@ -100,61 +100,86 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   }
 
   Widget _build3DCard(int index) {
-    return AnimatedBuilder(
-      animation: _pageController,
-      builder: (context, child) {
-        double page = _pageController.hasClients && _pageController.position.haveDimensions
-            ? (_pageController.page ?? _pageController.initialPage.toDouble())
-            : _pageController.initialPage.toDouble();
-        final double delta = (index - page);
-        // 进一步减小旋转角度，避免圆角变形
-        final double rotationY = (delta.clamp(-1.0, 1.0)) * 0.5;
-        final double scale = (1 - (delta.abs() * 0.12)).clamp(0.88, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 计算item高度为屏幕的2/3
+        final double screenHeight = MediaQuery.of(context).size.height;
+        final double itemHeight = screenHeight * 2 / 3;
+        
+        return AnimatedBuilder(
+          animation: _pageController,
+          builder: (context, child) {
+            double page = _pageController.hasClients && _pageController.position.haveDimensions
+                ? (_pageController.page ?? _pageController.initialPage.toDouble())
+                : _pageController.initialPage.toDouble();
+            final double delta = (index - page);
+            // 进一步减小旋转角度，避免圆角变形
+            final double rotationY = (delta.clamp(-1.0, 1.0)) * 0.5;
+            final double scale = (1 - (delta.abs() * 0.12)).clamp(0.88, 1.0);
 
-        final Matrix4 transform = Matrix4.identity()
-          ..setEntry(3, 2, 0.0006) // 进一步调整透视参数，减少变形
-          ..translate(delta * 20.0) // ignore: deprecated_member_use, 减小偏移量
-          ..rotateY(rotationY);
+            final Matrix4 transform = Matrix4.identity()
+              ..setEntry(3, 2, 0.0006) // 进一步调整透视参数，减少变形
+              ..translate(delta * 20.0) // ignore: deprecated_member_use, 减小偏移量
+              ..rotateY(rotationY);
 
-        return RepaintBoundary(
-          // 使用 RepaintBoundary 优化渲染性能
-          child: ClipRRect(
-            // 在变换之前裁剪，确保圆角在 3D 变换时保持正确
-            borderRadius: BorderRadius.circular(16),
-            child: Transform(
-              transform: transform,
+            return Align(
               alignment: Alignment.center,
-              filterQuality: FilterQuality.high, // 提高渲染质量
-              child: Opacity(
-                opacity: (1 - (delta.abs() * 0.25)).clamp(0.4, 1.0),
-                child: Transform.scale(
-                  scale: scale,
-                  filterQuality: FilterQuality.high, // 提高渲染质量
-                  child: child,
+              child: SizedBox(
+                height: itemHeight,
+                child: RepaintBoundary(
+                  // 使用 RepaintBoundary 优化渲染性能
+                  child: ClipRRect(
+                    // 在变换之前裁剪，确保圆角在 3D 变换时保持正确
+                    borderRadius: BorderRadius.circular(16),
+                    child: Transform(
+                      transform: transform,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.high, // 提高渲染质量
+                      child: Opacity(
+                        opacity: (1 - (delta.abs() * 0.25)).clamp(0.4, 1.0),
+                        child: Transform.scale(
+                          scale: scale,
+                          filterQuality: FilterQuality.high, // 提高渲染质量
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
+          child: _GalleryCard(index: index),
         );
       },
-      child: _GalleryCard(index: index),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.height < 700;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    
+    // 计算画廊高度为屏幕的2/3
+    final double galleryHeight = screenHeight * 2 / 3;
+    
     return Scaffold(
       backgroundColor: const Color(0xFF000000),
       body: ScrollConfiguration(
         behavior: MouseDragScrollBehavior(),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: MediaQuery.of(context).size.height < 700 ? 0.0 : 20.0, // 手机端移除上下间距，让画廊占满
-                ),
+            // 画廊区域 - 固定高度
+            Padding(
+              padding: EdgeInsets.only(
+                left: 20.0,
+                right: 20.0,
+                top: isMobile ? 0.0 : 20.0,
+              ),
+              child: SizedBox(
+                height: galleryHeight,
                 child: NotificationListener<ScrollEndNotification>(
                   onNotification: (notification) {
                     // 当滚动结束时，自动居中到最近的页面
@@ -185,10 +210,12 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            // 画廊下方中央文案
+            // 文字区域 - 紧贴画廊，无任何间距
             Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).size.height < 700 ? 0.0 : 16.0, // 手机端紧挨画廊
+                left: 20.0,
+                right: 20.0,
+                bottom: isMobile ? 0.0 : 8.0,
               ),
               child: _ColorizeWaveText(
                 text: 'Mercedes-Benz W126',
@@ -196,7 +223,7 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                 textStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   letterSpacing: 3.0,
-                  fontSize: MediaQuery.of(context).size.width < 600 ? 22 : 28, // 手机端减小字体
+                  fontSize: MediaQuery.of(context).size.width < 600 ? 22 : 28,
                   shadows: [
                     Shadow(
                       blurRadius: 10.0,
@@ -283,88 +310,89 @@ class _GalleryCardState extends State<_GalleryCard> {
   Widget build(BuildContext context) {
     const double borderRadius = 16.0; // 统一的圆角值
     
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-        width: double.infinity,
-        clipBehavior: Clip.antiAlias, // 确保圆角正确裁剪
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF), // 明确设置为白色
-          borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
-          border: Border.all(color: Colors.grey.shade300, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              offset: const Offset(0, 8),
-              blurRadius: 20,
-            ),
-          ],
-        ),
-        child: AspectRatio(
-          aspectRatio: 3 / 4,
-          child: ClipRRect(
-            // 确保内部内容也遵循圆角
-            borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
-            child: widget.index == 0 && _isVideoInitialized && _videoController != null
-                ? Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // 视频播放器
-                      FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: _videoController!.value.size.width,
-                          height: _videoController!.value.size.height,
-                          child: VideoPlayer(_videoController!),
-                        ),
-                      ),
-                      // 点击控制播放/暂停
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (_videoController!.value.isPlaying) {
-                              _videoController!.pause();
-                            } else {
-                              _videoController!.play();
-                            }
-                          });
-                        },
-                        child: Container(
-                          color: Colors.transparent,
-                        ),
-                      ),
-                    ],
-                  )
-                : widget.index == 0 && !_isVideoInitialized
-                    ? Container(
-                        color: Colors.black,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        clipBehavior: Clip.antiAlias, // 确保内部圆角正确裁剪
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFFFF), // 再次确保内部也是白色
-                          borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Center(
-                            // 内容暂为空白（占位）
-                            child: Text(
-                              '',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+    final bool isMobile = MediaQuery.of(context).size.height < 700;
+    
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: 2,
+        vertical: isMobile ? 0 : 8, // 手机端移除垂直margin
+      ),
+      width: double.infinity,
+      height: double.infinity, // 填充父容器的高度（已在_build3DCard中设置为屏幕的2/3）
+      clipBehavior: Clip.antiAlias, // 确保圆角正确裁剪
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF), // 明确设置为白色
+        borderRadius: BorderRadius.all(Radius.circular(borderRadius)), // 四个角都使用相同的圆角
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            offset: const Offset(0, 8),
+            blurRadius: 20,
           ),
-        ),
+        ],
+      ),
+      child: ClipRRect(
+        // 确保内部内容也遵循圆角
+        borderRadius: BorderRadius.all(Radius.circular(borderRadius)),
+        child: widget.index == 0 && _isVideoInitialized && _videoController != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 视频播放器
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _videoController!.value.size.width,
+                      height: _videoController!.value.size.height,
+                      child: VideoPlayer(_videoController!),
+                    ),
+                  ),
+                  // 点击控制播放/暂停
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (_videoController!.value.isPlaying) {
+                          _videoController!.pause();
+                        } else {
+                          _videoController!.play();
+                        }
+                      });
+                    },
+                    child: Container(
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ],
+              )
+            : widget.index == 0 && !_isVideoInitialized
+                ? Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: Colors.black,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: const Color(0xFFFFFFFF), // 确保白色背景填充整个容器
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Center(
+                        // 内容暂为空白（占位）
+                        child: Text(
+                          '',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.black, // 文本颜色设为黑色以便在白色背景上可见
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
       ),
     );
   }
