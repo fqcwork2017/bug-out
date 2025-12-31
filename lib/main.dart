@@ -85,10 +85,8 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // 根据屏幕高度判断是否是手机端，手机端使用0.68，其他端使用0.55
-    final double screenHeight = WidgetsBinding.instance.platformDispatcher.views.first.physicalSize.height /
-        WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-    final bool isMobile = screenHeight < 700;
+    // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
+    final bool isMobile = !kIsWeb;
     _pageController = PageController(
       viewportFraction: isMobile ? 0.68 : 0.55,
       initialPage: 0,
@@ -165,7 +163,8 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final bool isMobile = MediaQuery.of(context).size.height < 700;
+    // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
+    final bool isMobile = !kIsWeb;
     final double screenHeight = MediaQuery.of(context).size.height;
     
     // 计算画廊高度为屏幕的2/3
@@ -291,13 +290,23 @@ class _GalleryCardState extends State<_GalleryCard> {
     super.initState();
     // 第一个 item (index == 0) 加载视频
     if (widget.index == 0) {
-      _initializeVideo();
+      // 延迟初始化视频，确保 context 可用
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _initializeVideo();
+        }
+      });
     }
   }
 
   Future<void> _initializeVideo() async {
     try {
-      _videoController = VideoPlayerController.asset('assets/videos/w126_city.mp4');
+      // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
+      final bool isMobile = !kIsWeb;
+      final String videoPath = isMobile 
+          ? 'assets/videos/w126_city_phone.mp4' 
+          : 'assets/videos/w126_city.mp4';
+      _videoController = VideoPlayerController.asset(videoPath);
       await _videoController!.initialize();
       if (mounted) {
         setState(() {
@@ -322,7 +331,8 @@ class _GalleryCardState extends State<_GalleryCard> {
   Widget build(BuildContext context) {
     const double borderRadius = 16.0; // 统一的圆角值
     
-    final bool isMobile = MediaQuery.of(context).size.height < 700;
+    // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
+    final bool isMobile = !kIsWeb;
     
     return Container(
       margin: EdgeInsets.symmetric(
