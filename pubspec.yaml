@@ -82,6 +82,9 @@ dependencies:
   # 动画文本
   animated_text_kit: ^4.2.2
 
+  # 地球3D模型
+  flutter_earth_globe: ^2.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
