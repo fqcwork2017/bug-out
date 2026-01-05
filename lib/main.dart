@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'dart:async';
 
 // 自定义滚动行为，支持鼠标拖拽
 class MouseDragScrollBehavior extends MaterialScrollBehavior {
@@ -16,7 +17,7 @@ class MouseDragScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 尝试进入沉浸式（移动端生效，浏览器表现有限）
   if (!kIsWeb) {
@@ -29,6 +30,12 @@ void main() {
     ));
   }
 
+  // Web 端预加载优化：等待首帧渲染完成
+  if (kIsWeb) {
+    // 确保 Flutter 引擎完全初始化
+    await Future.delayed(const Duration(milliseconds: 100));
+  }
+
   runApp(
     const ProviderScope(
       child: MyApp(),
@@ -36,11 +43,43 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+// 应用初始化状态 Provider
+final appInitializedProvider = StateProvider<bool>((ref) => false);
+
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Web 端：等待首帧渲染后标记为已初始化
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            ref.read(appInitializedProvider.notifier).state = true;
+          }
+        });
+      });
+    } else {
+      // 非 Web 端：立即标记为已初始化
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(appInitializedProvider.notifier).state = true;
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isInitialized = ref.watch(appInitializedProvider);
+    
     // 极夜黑主题
     final theme = ThemeData.dark().copyWith(
       scaffoldBackgroundColor: const Color(0xFF000000),
@@ -65,7 +104,40 @@ class MyApp extends StatelessWidget {
       title: 'Bug Out - 3D Gallery',
       theme: theme,
       scrollBehavior: MouseDragScrollBehavior(),
-      home: const FLHomePage(),
+      home: isInitialized 
+        ? const FLHomePage()
+        : const _AppLoadingScreen(),
+    );
+  }
+}
+
+// 应用加载屏幕（Flutter 内部的 Loading，作为 HTML Loading 的备用）
+class _AppLoadingScreen extends StatelessWidget {
+  const _AppLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Loading...',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.white,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
