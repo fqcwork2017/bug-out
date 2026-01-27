@@ -85,6 +85,9 @@ dependencies:
   # 地球3D模型
   flutter_earth_globe: ^2.2.0
 
+  # 轮播图组件
+  carousel_slider: ^5.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'dart:async';
 
 // 自定义滚动行为，支持鼠标拖拽
@@ -153,19 +154,13 @@ class FLHomePage extends StatefulWidget {
 
 class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   static const int itemCount = 10; // 画廊数量为 10
-  late PageController _pageController;
+  final CarouselSliderController _carouselController = CarouselSliderController();
   late AnimationController _textAnimationController;
   bool _disposed = false; // 添加标志防止重复 dispose
 
   @override
   void initState() {
     super.initState();
-    // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
-    final bool isMobile = !kIsWeb;
-    _pageController = PageController(
-      viewportFraction: isMobile ? 0.68 : 0.55,
-      initialPage: 0,
-    );
     // 动画时长：基础动画5秒 + 暂停1秒 = 6秒
     _textAnimationController = AnimationController(
       vsync: this,
@@ -180,64 +175,7 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
     
     _textAnimationController.stop(); // 先停止动画
     _textAnimationController.dispose();
-    _pageController.dispose();
     super.dispose();
-  }
-
-  Widget _build3DCard(int index) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 计算item高度为屏幕的2/3
-        final double screenHeight = MediaQuery.of(context).size.height;
-        final double itemHeight = screenHeight * 2 / 3;
-        
-        return AnimatedBuilder(
-          animation: _pageController,
-          builder: (context, child) {
-            double page = _pageController.hasClients && _pageController.position.haveDimensions
-                ? (_pageController.page ?? _pageController.initialPage.toDouble())
-                : _pageController.initialPage.toDouble();
-            final double delta = (index - page);
-            // 进一步减小旋转角度，避免圆角变形
-            final double rotationY = (delta.clamp(-1.0, 1.0)) * 0.5;
-            final double scale = (1 - (delta.abs() * 0.12)).clamp(0.88, 1.0);
-
-            final Matrix4 transform = Matrix4.identity()
-              ..setEntry(3, 2, 0.0006) // 进一步调整透视参数，减少变形
-              ..translate(delta * 20.0) // ignore: deprecated_member_use, 减小偏移量
-              ..rotateY(rotationY);
-
-            return Align(
-              alignment: Alignment.center,
-              child: SizedBox(
-                height: itemHeight,
-                child: RepaintBoundary(
-                  // 使用 RepaintBoundary 优化渲染性能
-                  child: ClipRRect(
-                    // 在变换之前裁剪，确保圆角在 3D 变换时保持正确
-                    borderRadius: BorderRadius.circular(16),
-                    child: Transform(
-                      transform: transform,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.high, // 提高渲染质量
-                      child: Opacity(
-                        opacity: (1 - (delta.abs() * 0.25)).clamp(0.4, 1.0),
-                        child: Transform.scale(
-                          scale: scale,
-                          filterQuality: FilterQuality.high, // 提高渲染质量
-                          child: child,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-          child: _GalleryCard(index: index),
-        );
-      },
-    );
   }
 
   @override
@@ -258,7 +196,7 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 画廊区域 - 固定高度，居中
+              // 画廊区域 - 使用 CarouselSlider
               Padding(
                 padding: EdgeInsets.only(
                   left: isMobile ? 0.0 : 20.0,
@@ -268,33 +206,31 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                 child: SizedBox(
                   height: galleryHeight,
                   width: double.infinity,
-                  child: NotificationListener<ScrollEndNotification>(
-                  onNotification: (notification) {
-                    // 当滚动结束时，自动居中到最近的页面
-                    if (_pageController.hasClients) {
-                      final double currentPage = _pageController.page ?? 0.0;
-                      final int targetPage = currentPage.round().clamp(0, itemCount - 1);
-                      
-                      // 如果当前页面与目标页面不一致，则滚动到目标页面
-                      if (targetPage != currentPage.round()) {
-                        _pageController.animateToPage(
-                          targetPage,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        );
-                      }
-                    }
-                    return true;
-                  },
-                  child: PageView.builder(
-                    controller: _pageController,
+                  child: CarouselSlider.builder(
+                    carouselController: _carouselController,
                     itemCount: itemCount,
-                    padEnds: true,
-                    scrollDirection: Axis.horizontal,
-                    dragStartBehavior: DragStartBehavior.start,
-                    physics: const PageScrollPhysics(),
-                    itemBuilder: (context, index) => _build3DCard(index),
-                  ),
+                    itemBuilder: (context, index, realIndex) {
+                      return _GalleryCard(index: index);
+                    },
+                    options: CarouselOptions(
+                      height: galleryHeight,
+                      viewportFraction: isMobile ? 0.68 : 0.55,
+                      initialPage: 0,
+                      enableInfiniteScroll: true,
+                      reverse: false,
+                      autoPlay: false,
+                      autoPlayInterval: const Duration(seconds: 3),
+                      autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                      autoPlayCurve: Curves.fastOutSlowIn,
+                      enlargeCenterPage: true,
+                      enlargeFactor: 0.2,
+                      scrollDirection: Axis.horizontal,
+                      scrollPhysics: const BouncingScrollPhysics(),
+                      onPageChanged: (index, reason) {
+                        // 页面改变时的回调
+                        debugPrint('Page changed to: $index');
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -434,7 +370,7 @@ class _GalleryCardState extends State<_GalleryCard> {
         vertical: isMobile ? 0 : 8, // 手机端移除垂直margin
       ),
       width: double.infinity,
-      height: double.infinity, // 填充父容器的高度（已在_build3DCard中设置为屏幕的2/3）
+      height: double.infinity, // 填充父容器的高度
       clipBehavior: Clip.antiAlias, // 确保圆角正确裁剪
       decoration: BoxDecoration(
         color: const Color(0xFFFFFFFF), // 明确设置为白色
