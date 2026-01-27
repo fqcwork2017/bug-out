@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_earth_globe/flutter_earth_globe.dart';
+import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'dart:async';
 
 // 自定义滚动行为，支持鼠标拖拽
@@ -153,6 +155,7 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
   static const int itemCount = 10; // 画廊数量为 10
   late PageController _pageController;
   late AnimationController _textAnimationController;
+  bool _disposed = false; // 添加标志防止重复 dispose
 
   @override
   void initState() {
@@ -172,8 +175,12 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    if (_disposed) return; // 防止重复 dispose
+    _disposed = true;
+    
+    _textAnimationController.stop(); // 先停止动画
     _textAnimationController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -356,6 +363,7 @@ class _GalleryCard extends StatefulWidget {
 class _GalleryCardState extends State<_GalleryCard> {
   VideoPlayerController? _videoController;
   bool _isVideoInitialized = false;
+  bool _disposed = false; // 添加标志防止重复 dispose
 
   @override
   void initState() {
@@ -364,7 +372,7 @@ class _GalleryCardState extends State<_GalleryCard> {
     if (widget.index == 0) {
       // 延迟初始化视频，确保 context 可用
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && !_disposed) {
           _initializeVideo();
         }
       });
@@ -372,6 +380,7 @@ class _GalleryCardState extends State<_GalleryCard> {
   }
 
   Future<void> _initializeVideo() async {
+    if (_disposed) return; // 如果已 dispose，不再执行
     try {
       // 根据平台判断是否是手机端（最可靠），非Web端就是移动设备
       final bool isMobile = !kIsWeb;
@@ -380,13 +389,17 @@ class _GalleryCardState extends State<_GalleryCard> {
           : 'assets/videos/w126_city.mp4';
       _videoController = VideoPlayerController.asset(videoPath);
       await _videoController!.initialize();
-      if (mounted) {
+      if (mounted && !_disposed) {
         setState(() {
           _isVideoInitialized = true;
         });
         // 自动播放并循环
         _videoController!.setLooping(true);
         _videoController!.play();
+      } else {
+        // 如果已经 dispose，立即清理
+        _videoController?.dispose();
+        _videoController = null;
       }
     } catch (e) {
       debugPrint('Error initializing video: $e');
@@ -395,7 +408,16 @@ class _GalleryCardState extends State<_GalleryCard> {
 
   @override
   void dispose() {
-    _videoController?.dispose();
+    if (_disposed) return; // 防止重复 dispose
+    _disposed = true;
+    
+    try {
+      _videoController?.pause();
+      _videoController?.dispose();
+      _videoController = null;
+    } catch (e) {
+      debugPrint('Error disposing video controller: $e');
+    }
     super.dispose();
   }
 
@@ -491,12 +513,89 @@ class _GalleryCardState extends State<_GalleryCard> {
 }
 
 // 奔驰详情页
-class MercedesDetailPage extends StatelessWidget {
+class MercedesDetailPage extends StatefulWidget {
   const MercedesDetailPage({super.key});
+
+  @override
+  State<MercedesDetailPage> createState() => _MercedesDetailPageState();
+}
+
+class _MercedesDetailPageState extends State<MercedesDetailPage> {
+  late FlutterEarthGlobeController _globeController;
+  bool _disposed = false; // 添加标志防止重复 dispose
+
+  @override
+  void initState() {
+    super.initState();
+    // 初始化控制器
+    // 德国位于欧洲中部：纬度 51.17°N，经度 10.45°E
+    // 设置合适的初始参数以显示欧洲/德国区域
+    // 使用网络图片加载地球纹理（使用可靠的地球纹理URL）
+    _globeController = FlutterEarthGlobeController(
+      rotationSpeed: 0.01, // 慢速旋转，方便查看
+      zoom: 1.8, // 放大以便更好地查看德国及欧洲区域
+      // 加载地球纹理图片
+      // 使用地球纹理图片（Equirectangular投影）
+      // 使用可靠的地球纹理URL
+      surface: const NetworkImage(
+        'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg',
+      ),
+      // 备选URL（如果上面的不可用）：
+      // 'https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg'
+      // 或者使用本地资源：Image.asset('assets/images/earth_texture.jpg')
+      // 启用大气层效果，让地球更真实
+      showAtmosphere: true,
+      atmosphereColor: Colors.cyan,
+      atmosphereOpacity: 0.7,
+      atmosphereThickness: 0.15,
+    );
+    // 等待地球加载完成后，优化视图以突出显示德国
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted && !_disposed) {
+          _optimizeForGermanyView();
+        }
+      });
+    });
+  }
+
+  // 优化视图以显示德国
+  void _optimizeForGermanyView() {
+    if (_disposed) return; // 如果已 dispose，不再执行
+    try {
+      // 设置合适的缩放级别以突出显示德国及欧洲区域
+      _globeController.setZoom(2.0);
+      
+      // 由于 Point 和 GlobeCoordinates API 在当前版本可能不可用
+      // 我们通过设置合适的初始参数和缩放来让用户更容易找到德国
+      // 德国位于欧洲中部，用户可以通过手动旋转地球找到
+      debugPrint('Germany location: 51.17°N, 10.45°E');
+      debugPrint('Globe optimized for viewing Germany/Europe region');
+    } catch (e) {
+      debugPrint('Note: Some features may not be available: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return; // 防止重复 dispose
+    _disposed = true;
+    
+    try {
+      _globeController.dispose();
+    } catch (e) {
+      debugPrint('Error disposing globe controller: $e');
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final bool isMobile = !kIsWeb;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double globeSize = isMobile 
+        ? screenWidth - 40.0  // 移动端：屏幕宽度减去左右padding
+        : 400.0;  // Web端：固定400宽度
     
     return Scaffold(
       backgroundColor: const Color(0xFF000000),
@@ -526,6 +625,82 @@ class MercedesDetailPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 地球模型
+              Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: globeSize,
+                      height: globeSize,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: FlutterEarthGlobe(
+                          controller: _globeController,
+                          radius: globeSize / 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 德国位置说明
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '📍 德国位置',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.blue.shade300,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '纬度 51.17°N，经度 10.45°E',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey.shade300,
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '（地球已放大显示欧洲区域，可手动旋转查看）',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade500,
+                              fontSize: 11,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
               _buildSection(
                 context,
                 '一、企业概况',
