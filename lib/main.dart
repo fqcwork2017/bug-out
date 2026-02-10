@@ -224,6 +224,9 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                       autoPlayCurve: Curves.fastOutSlowIn,
                       enlargeCenterPage: true,
                       scrollDirection: Axis.horizontal,
+                      // 手指/鼠标按压时暂停轮播，可跟随滑动
+                      pauseAutoPlayOnTouch: true,
+                      pauseAutoPlayOnManualNavigate: true,
                     ),
                   ),
                 ),
@@ -394,8 +397,9 @@ class _GalleryCardState extends State<_GalleryCard> {
                       child: VideoPlayer(_videoController!),
                     ),
                   ),
-                  // 点击进入详情页
+                  // 点击（非滑动）时停止轮播并进入详情页
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -410,13 +414,23 @@ class _GalleryCardState extends State<_GalleryCard> {
                 ],
               )
             : widget.index == 0 && !_isVideoInitialized
-                ? Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    color: Colors.black,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
+                ? GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const MercedesDetailPage(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      color: Colors.black,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   )
