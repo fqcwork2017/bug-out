@@ -212,24 +212,18 @@ class _FLHomePageState extends State<FLHomePage> with TickerProviderStateMixin {
                     itemBuilder: (context, index, realIndex) {
                       return _GalleryCard(index: index);
                     },
+                    // 使用 on-demand carousel slider 效果
                     options: CarouselOptions(
                       height: galleryHeight,
-                      viewportFraction: isMobile ? 0.68 : 0.55,
+                      viewportFraction: 0.9,
                       initialPage: 0,
                       enableInfiniteScroll: true,
-                      reverse: false,
-                      autoPlay: false,
-                      autoPlayInterval: const Duration(seconds: 3),
+                      autoPlay: true,
+                      autoPlayInterval: const Duration(seconds: 4),
                       autoPlayAnimationDuration: const Duration(milliseconds: 800),
                       autoPlayCurve: Curves.fastOutSlowIn,
                       enlargeCenterPage: true,
-                      enlargeFactor: 0.2,
                       scrollDirection: Axis.horizontal,
-                      scrollPhysics: const BouncingScrollPhysics(),
-                      onPageChanged: (index, reason) {
-                        // 页面改变时的回调
-                        debugPrint('Page changed to: $index');
-                      },
                     ),
                   ),
                 ),
