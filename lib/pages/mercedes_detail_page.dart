@@ -3,6 +3,16 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe.dart';
 import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
+import 'package:flutter_earth_globe/globe_coordinates.dart';
+import 'package:flutter_earth_globe/point.dart';
+
+// 地球纹理 URL（Equirectangular 投影，与官方示例一致）
+const String _kEarthSurfaceUrl =
+    'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg';
+
+// 德国坐标（纬度 51.1657°N，经度 10.4515°E）
+const double _kGermanyLat = 51.1657;
+const double _kGermanyLon = 10.4515;
 
 // 自定义滚动行为，支持鼠标拖拽
 class _MouseDragScrollBehavior extends MaterialScrollBehavior {
@@ -16,6 +26,8 @@ class _MouseDragScrollBehavior extends MaterialScrollBehavior {
 }
 
 /// 奔驰详情页
+/// 参照 [flutter_earth_globe](https://github.com/Pana-g/flutter_earth_globe) 绘制地球并定位到德国。
+/// Web 端需使用 `--wasm` 否则着色器可能不生效：flutter run -d chrome --wasm
 class MercedesDetailPage extends StatefulWidget {
   const MercedesDetailPage({super.key});
 
@@ -26,37 +38,61 @@ class MercedesDetailPage extends StatefulWidget {
 class _MercedesDetailPageState extends State<MercedesDetailPage> {
   late FlutterEarthGlobeController _globeController;
   bool _disposed = false;
+  bool _texturePrecached = false;
 
   @override
   void initState() {
     super.initState();
+    // 参照官方 Quick Start：使用 ImageProvider 作为 surface，并设置 atmosphere
     _globeController = FlutterEarthGlobeController(
       rotationSpeed: 0.01,
       zoom: 1.8,
-      surface: const NetworkImage(
-        'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg',
-      ),
+      surface: const NetworkImage(_kEarthSurfaceUrl),
       showAtmosphere: true,
-      atmosphereColor: Colors.cyan,
-      atmosphereOpacity: 0.7,
+      atmosphereColor: const Color(0xFF397BB9), // 地球蓝
+      atmosphereOpacity: 0.6,
       atmosphereThickness: 0.15,
+      atmosphereBlur: 25.0,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (mounted && !_disposed) {
-          _optimizeForGermanyView();
-        }
+      _precacheTexture();
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted && !_disposed) _optimizeForGermanyView();
       });
     });
+  }
+
+  Future<void> _precacheTexture() async {
+    if (_texturePrecached) return;
+    if (!mounted) return;
+    try {
+      await precacheImage(const NetworkImage(_kEarthSurfaceUrl), context);
+      if (mounted && !_disposed) _texturePrecached = true;
+    } catch (e) {
+      debugPrint('Earth texture precache failed: $e');
+    }
   }
 
   void _optimizeForGermanyView() {
     if (_disposed) return;
     try {
       _globeController.setZoom(2.0);
-      debugPrint('Germany location: 51.17°N, 10.45°E');
+      // 添加德国标记点（官方 API：Point + GlobeCoordinates）
+      _globeController.addPoint(Point(
+        id: 'germany',
+        coordinates: const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
+        label: '德国',
+        isLabelVisible: true,
+        style: const PointStyle(
+          color: Colors.blue,
+          size: 12,
+          altitude: 0.02,
+        ),
+        onTap: () => debugPrint('Germany tapped'),
+      ));
+      debugPrint('Germany marker added: $_kGermanyLat°N, $_kGermanyLon°E');
     } catch (e) {
-      debugPrint('Note: Some features may not be available: $e');
+      debugPrint('Optimize Germany view: $e');
     }
   }
 
@@ -109,24 +145,27 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
               Center(
                 child: Column(
                   children: [
-                    Container(
+                    SizedBox(
                       width: globeSize,
                       height: globeSize,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 20,
-                            spreadRadius: 5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: FlutterEarthGlobe(
+                            controller: _globeController,
+                            radius: globeSize / 2,
+                            alignment: Alignment.center,
                           ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: FlutterEarthGlobe(
-                          controller: _globeController,
-                          radius: globeSize / 2,
                         ),
                       ),
                     ),
