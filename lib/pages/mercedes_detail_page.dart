@@ -235,8 +235,8 @@ class _GlobeFullScreenPageState extends State<_GlobeFullScreenPage> {
         label: '德国',
         isLabelVisible: true,
         style: const PointStyle(
-          color: Colors.blue,
-          size: 12,
+          color: Colors.transparent,
+          size: 0,
           altitude: 0.02,
         ),
         onTap: () {},
