@@ -37,71 +37,7 @@ class MercedesDetailPage extends StatefulWidget {
 
 class _MercedesDetailPageState extends State<MercedesDetailPage> {
   static const double _kGlobePreviewSize = 160.0;
-  late FlutterEarthGlobeController _previewController;
-  bool _previewDisposed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _previewController = FlutterEarthGlobeController(
-      rotationSpeed: 0,
-      zoom: 1.6,
-      surface: null,
-      isZoomEnabled: false,
-      panSensitivity: 0,
-      showAtmosphere: true,
-      atmosphereColor: const Color(0xFF397BB9),
-      atmosphereOpacity: 0.2,
-      atmosphereThickness: 0.06,
-      atmosphereBlur: 12.0,
-    );
-    _previewController.onLoaded = _onPreviewLoaded;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_previewDisposed || !mounted) return;
-      _previewController.loadSurface(const NetworkImage(_kEarthSurfaceUrl));
-    });
-  }
-
-  void _onPreviewLoaded() {
-    if (_previewDisposed || !mounted) return;
-    try {
-      _previewController.setZoom(2.0);
-      _previewController.addPoint(Point(
-        id: 'germany',
-        coordinates: const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
-        label: '德国',
-        isLabelVisible: true,
-        style: const PointStyle(
-          color: Colors.transparent,
-          size: 0,
-          altitude: 0.02,
-        ),
-        onTap: () {},
-      ));
-      // 延后一帧再定位；缩小版仅用 focus + panOffsetY，不改 panOffsetX（避免变蓝、避免影响放大页）
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 80), () {
-          if (_previewDisposed || !mounted) return;
-          try {
-            _previewController.focusOnCoordinates(
-              const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
-              animate: false,
-            );
-            _previewController.panOffsetY = 0.06;
-          } catch (_) {}
-        });
-      });
-    } catch (e) {
-      debugPrint('Preview globe onLoaded: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    _previewDisposed = true;
-    _previewController.dispose();
-    super.dispose();
-  }
+  static const String _kPreviewImagePath = 'assets/images/germany.webp';
 
   @override
   Widget build(BuildContext context) {
@@ -159,11 +95,14 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: IgnorePointer(
-                        child: FlutterEarthGlobe(
-                          controller: _previewController,
-                          radius: _kGlobePreviewSize / 2,
+                      child: Image.asset(
+                        _kPreviewImagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade800,
                           alignment: Alignment.center,
+                          child: Icon(Icons.image_not_supported,
+                              color: Colors.grey.shade600, size: 40),
                         ),
                       ),
                     ),
