@@ -78,7 +78,7 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
         ),
         onTap: () {},
       ));
-      // 延后一帧并稍等再定位，确保缩小版 globe 已渲染后再对准德国
+      // 延后一帧再定位；缩小版仅用 focus + panOffsetY，不改 panOffsetX（避免变蓝、避免影响放大页）
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 80), () {
           if (_previewDisposed || !mounted) return;
@@ -298,12 +298,11 @@ class _GlobeFullScreenPageState extends State<_GlobeFullScreenPage> {
         ),
         onTap: () {},
       ));
-      // 无动画定位到德国
+      // 全屏：无动画定位到德国，仅微调 panOffsetY（勿改，保持放大后效果）
       _controller.focusOnCoordinates(
         const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
         animate: false,
       );
-      // 微调向下偏移，使德国在视野中央（避免定到德国上方）
       _controller.panOffsetY = 0.06;
       Future.delayed(const Duration(milliseconds: 150), () {
         if (_disposed || !mounted) return;
