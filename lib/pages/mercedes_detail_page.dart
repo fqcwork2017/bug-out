@@ -36,7 +36,72 @@ class MercedesDetailPage extends StatefulWidget {
 }
 
 class _MercedesDetailPageState extends State<MercedesDetailPage> {
-  static const double _kGlobePlaceholderSize = 140.0;
+  static const double _kGlobePreviewSize = 160.0;
+  late FlutterEarthGlobeController _previewController;
+  bool _previewDisposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _previewController = FlutterEarthGlobeController(
+      rotationSpeed: 0,
+      zoom: 1.6,
+      surface: null,
+      isZoomEnabled: false,
+      panSensitivity: 0,
+      showAtmosphere: true,
+      atmosphereColor: const Color(0xFF397BB9),
+      atmosphereOpacity: 0.2,
+      atmosphereThickness: 0.06,
+      atmosphereBlur: 12.0,
+    );
+    _previewController.onLoaded = _onPreviewLoaded;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_previewDisposed || !mounted) return;
+      _previewController.loadSurface(const NetworkImage(_kEarthSurfaceUrl));
+    });
+  }
+
+  void _onPreviewLoaded() {
+    if (_previewDisposed || !mounted) return;
+    try {
+      _previewController.setZoom(2.0);
+      _previewController.addPoint(Point(
+        id: 'germany',
+        coordinates: const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
+        label: '德国',
+        isLabelVisible: true,
+        style: const PointStyle(
+          color: Colors.transparent,
+          size: 0,
+          altitude: 0.02,
+        ),
+        onTap: () {},
+      ));
+      // 延后一帧并稍等再定位，确保缩小版 globe 已渲染后再对准德国
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 80), () {
+          if (_previewDisposed || !mounted) return;
+          try {
+            _previewController.focusOnCoordinates(
+              const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
+              animate: false,
+            );
+            _previewController.panOffsetY = 0.06;
+          } catch (_) {}
+        });
+      });
+    } catch (e) {
+      debugPrint('Preview globe onLoaded: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _previewDisposed = true;
+    _previewController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,35 +144,27 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
                       ),
                     );
                   },
-                  child: SizedBox(
-                    width: _kGlobePlaceholderSize,
-                    height: _kGlobePlaceholderSize,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.blue.withValues(alpha: 0.4),
-                          width: 1,
+                  child: Container(
+                    width: _kGlobePreviewSize,
+                    height: _kGlobePreviewSize,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          spreadRadius: 2,
                         ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.public,
-                            size: 40,
-                            color: Colors.blue.shade300,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '点击查看地球',
-                            style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: IgnorePointer(
+                        child: FlutterEarthGlobe(
+                          controller: _previewController,
+                          radius: _kGlobePreviewSize / 2,
+                          alignment: Alignment.center,
+                        ),
                       ),
                     ),
                   ),
