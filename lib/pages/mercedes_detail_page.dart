@@ -6,7 +6,7 @@ import 'package:flutter_earth_globe/flutter_earth_globe_controller.dart';
 import 'package:flutter_earth_globe/globe_coordinates.dart';
 import 'package:flutter_earth_globe/point.dart';
 
-// 地球纹理 URL（Equirectangular 投影，与官方示例一致）
+// 地球纹理 URL（Equirectangular 投影）
 const String _kEarthSurfaceUrl =
     'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg';
 
@@ -36,83 +36,11 @@ class MercedesDetailPage extends StatefulWidget {
 }
 
 class _MercedesDetailPageState extends State<MercedesDetailPage> {
-  late FlutterEarthGlobeController _globeController;
-  bool _disposed = false;
-  bool _texturePrecached = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // 参照官方 Quick Start：使用 ImageProvider 作为 surface，并设置 atmosphere
-    _globeController = FlutterEarthGlobeController(
-      rotationSpeed: 0.01,
-      zoom: 1.8,
-      surface: const NetworkImage(_kEarthSurfaceUrl),
-      showAtmosphere: true,
-      atmosphereColor: const Color(0xFF397BB9), // 地球蓝
-      atmosphereOpacity: 0.6,
-      atmosphereThickness: 0.15,
-      atmosphereBlur: 25.0,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _precacheTexture();
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted && !_disposed) _optimizeForGermanyView();
-      });
-    });
-  }
-
-  Future<void> _precacheTexture() async {
-    if (_texturePrecached) return;
-    if (!mounted) return;
-    try {
-      await precacheImage(const NetworkImage(_kEarthSurfaceUrl), context);
-      if (mounted && !_disposed) _texturePrecached = true;
-    } catch (e) {
-      debugPrint('Earth texture precache failed: $e');
-    }
-  }
-
-  void _optimizeForGermanyView() {
-    if (_disposed) return;
-    try {
-      _globeController.setZoom(2.0);
-      // 添加德国标记点（官方 API：Point + GlobeCoordinates）
-      _globeController.addPoint(Point(
-        id: 'germany',
-        coordinates: const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
-        label: '德国',
-        isLabelVisible: true,
-        style: const PointStyle(
-          color: Colors.blue,
-          size: 12,
-          altitude: 0.02,
-        ),
-        onTap: () => debugPrint('Germany tapped'),
-      ));
-      debugPrint('Germany marker added: $_kGermanyLat°N, $_kGermanyLon°E');
-    } catch (e) {
-      debugPrint('Optimize Germany view: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    try {
-      _globeController.dispose();
-    } catch (e) {
-      debugPrint('Error disposing globe controller: $e');
-    }
-    super.dispose();
-  }
+  static const double _kGlobePlaceholderSize = 140.0;
 
   @override
   Widget build(BuildContext context) {
     final bool isMobile = !kIsWeb;
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double globeSize = isMobile ? screenWidth - 40.0 : 400.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF000000),
@@ -143,79 +71,46 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: globeSize,
-                      height: globeSize,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: FlutterEarthGlobe(
-                            controller: _globeController,
-                            radius: globeSize / 2,
-                            alignment: Alignment.center,
-                          ),
-                        ),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (context) => const _GlobeFullScreenPage(),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                    );
+                  },
+                  child: SizedBox(
+                    width: _kGlobePlaceholderSize,
+                    height: _kGlobePlaceholderSize,
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.blue.withValues(alpha: 0.3),
+                          color: Colors.blue.withValues(alpha: 0.4),
                           width: 1,
                         ),
                       ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '📍 德国位置',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Colors.blue.shade300,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
+                          Icon(
+                            Icons.public,
+                            size: 40,
+                            color: Colors.blue.shade300,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(
-                            '纬度 51.17°N，经度 10.45°E',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey.shade300,
+                            '点击查看地球',
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
                               fontSize: 13,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '（地球已放大显示欧洲区域，可手动旋转查看）',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade500,
-                              fontSize: 11,
-                            ),
-                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -288,6 +183,122 @@ class _MercedesDetailPageState extends State<MercedesDetailPage> {
               color: Colors.grey.shade300,
               height: 1.8,
               fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 全屏地球页：1.全屏加载地球 2.自动定位到德国 3.定位完成后可手动控制
+class _GlobeFullScreenPage extends StatefulWidget {
+  const _GlobeFullScreenPage();
+
+  @override
+  State<_GlobeFullScreenPage> createState() => _GlobeFullScreenPageState();
+}
+
+class _GlobeFullScreenPageState extends State<_GlobeFullScreenPage> {
+  late FlutterEarthGlobeController _controller;
+  bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = FlutterEarthGlobeController(
+      rotationSpeed: 0,
+      zoom: 1.6,
+      surface: null,
+      isZoomEnabled: false,
+      panSensitivity: 0,
+      showAtmosphere: true,
+      atmosphereColor: const Color(0xFF397BB9),
+      atmosphereOpacity: 0.2,
+      atmosphereThickness: 0.06,
+      atmosphereBlur: 12.0,
+    );
+    _controller.onLoaded = _onGlobeLoaded;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || !mounted) return;
+      _controller.loadSurface(const NetworkImage(_kEarthSurfaceUrl));
+    });
+  }
+
+  void _onGlobeLoaded() {
+    if (_disposed || !mounted) return;
+    try {
+      _controller.setZoom(2.0);
+      _controller.addPoint(Point(
+        id: 'germany',
+        coordinates: const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
+        label: '德国',
+        isLabelVisible: true,
+        style: const PointStyle(
+          color: Colors.blue,
+          size: 12,
+          altitude: 0.02,
+        ),
+        onTap: () {},
+      ));
+      // 无动画定位到德国
+      _controller.focusOnCoordinates(
+        const GlobeCoordinates(_kGermanyLat, _kGermanyLon),
+        animate: false,
+      );
+      // 微调向下偏移，使德国在视野中央（避免定到德国上方）
+      _controller.panOffsetY = 0.06;
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (_disposed || !mounted) return;
+        _controller.isZoomEnabled = true;
+        _controller.panSensitivity = 1.0;
+        _controller.rotationSpeed = 0.01;
+        setState(() {});
+      });
+    } catch (e) {
+      debugPrint('Globe fullscreen onLoaded: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Size size = MediaQuery.sizeOf(context);
+    // 全屏显示区域，半径取短边一半，保证能显示出整个地球
+    final double w = size.width;
+    final double h = size.height;
+    final double side = w < h ? w : h;
+    final double radius = side / 2;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Center(
+            child: SizedBox(
+              width: w,
+              height: h,
+              child: FlutterEarthGlobe(
+                controller: _controller,
+                radius: radius,
+                alignment: Alignment.center,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
           ),
         ],
