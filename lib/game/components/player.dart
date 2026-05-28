@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../bug_out_game.dart';
+import 'engine_trail.dart';
 import 'enemy.dart';
 
 class Player extends PositionComponent
@@ -20,6 +21,7 @@ class Player extends PositionComponent
     anchor = Anchor.center;
     reset();
     add(CircleHitbox(radius: 18));
+    add(EngineTrail(this));
   }
 
   void reset() {

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -7,9 +8,11 @@ import 'package:flutter/services.dart';
 
 import 'components/bullet.dart';
 import 'components/enemy.dart';
-import 'components/explosion.dart';
 import 'components/player.dart';
 import 'components/star_field.dart';
+import 'effects/animated_text.dart';
+import 'effects/camera_shake.dart';
+import 'effects/particle_effects.dart';
 
 enum GameState { menu, playing, paused, gameOver }
 
@@ -38,9 +41,6 @@ class BugOutGame extends FlameGame
 
   double _fireCooldown = 0;
   double _spawnCooldown = 0;
-  double _waveBannerTimer = 0;
-  String _waveBannerText = '';
-  double _screenShake = 0;
   final Random _random = Random();
   final ValueNotifier<int> hudTick = ValueNotifier(0);
 
@@ -76,7 +76,10 @@ class BugOutGame extends FlameGame
 
     children.whereType<Enemy>().forEach(remove);
     children.whereType<Bullet>().forEach(remove);
-    children.whereType<Explosion>().forEach(remove);
+    children.whereType<ParticleSystemComponent>().forEach(remove);
+    children.whereType<WaveBanner>().forEach(remove);
+    children.whereType<ComboPopup>().forEach(remove);
+    children.whereType<ShockwaveRing>().forEach(remove);
 
     player.reset();
     _startWave();
@@ -93,8 +96,10 @@ class BugOutGame extends FlameGame
     enemiesToSpawn = 6 + wave * 3;
     enemiesRemaining = enemiesToSpawn;
     _spawnCooldown = 0.4;
-    _waveBannerText = 'WAVE $wave';
-    _waveBannerTimer = 2.0;
+    add(WaveBanner(waveText: 'WAVE $wave'));
+    if (wave % 5 == 0) {
+      add(ShockwaveRing(position: size / 2));
+    }
     refreshHud();
   }
 
@@ -111,6 +116,12 @@ class BugOutGame extends FlameGame
     if (score > highScore) {
       highScore = score;
     }
+    if (combo >= 5 && combo % 5 == 0) {
+      add(ComboPopup(
+        text: 'COMBO x$combo',
+        position: player.position + Vector2(0, -50),
+      ));
+    }
     refreshHud();
   }
 
@@ -124,7 +135,7 @@ class BugOutGame extends FlameGame
     if (state != GameState.playing) return;
 
     lives--;
-    _screenShake = 8;
+    CameraShake.shake(this);
     resetCombo();
     player.flash();
 
@@ -181,9 +192,24 @@ class BugOutGame extends FlameGame
     ));
   }
 
+  void spawnHitSparks(Vector2 position) {
+    add(ParticleEffects.hitSparks(position: position));
+  }
+
   void enemyDestroyed(Enemy enemy) {
     addScore(enemy.kind.scoreValue);
-    add(Explosion(position: enemy.position.clone(), color: enemy.kind.color));
+    if (enemy.kind == EnemyKind.boss) {
+      add(ParticleEffects.bossExplosion(
+        position: enemy.position.clone(),
+        color: enemy.kind.color,
+      ));
+      CameraShake.shake(this, intensity: 18, pulses: 7);
+    } else {
+      add(ParticleEffects.explosion(
+        position: enemy.position.clone(),
+        color: enemy.kind.color,
+      ));
+    }
     enemy.removeFromParent();
     enemiesRemaining--;
 
@@ -199,17 +225,9 @@ class BugOutGame extends FlameGame
 
     if (state != GameState.playing) return;
 
-    if (_screenShake > 0) {
-      _screenShake = max(0, _screenShake - dt * 24);
-    }
-
     if (comboTimer > 0) {
       comboTimer -= dt;
       if (comboTimer <= 0) resetCombo();
-    }
-
-    if (_waveBannerTimer > 0) {
-      _waveBannerTimer -= dt;
     }
 
     _handleKeyboardMovement(dt);
@@ -255,51 +273,6 @@ class BugOutGame extends FlameGame
 
   void _handleKeyboardFire(double dt) {
     // Auto-fire handles shooting; space could trigger rapid burst in future.
-  }
-
-  @override
-  void render(Canvas canvas) {
-    if (_screenShake > 0) {
-      canvas.save();
-      canvas.translate(
-        (_random.nextDouble() - 0.5) * _screenShake,
-        (_random.nextDouble() - 0.5) * _screenShake,
-      );
-    }
-
-    super.render(canvas);
-
-    if (_screenShake > 0) {
-      canvas.restore();
-    }
-
-    if (_waveBannerTimer > 0) {
-      _renderWaveBanner(canvas);
-    }
-  }
-
-  void _renderWaveBanner(Canvas canvas) {
-    final opacity = (_waveBannerTimer / 2.0).clamp(0.0, 1.0);
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: _waveBannerText,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: opacity),
-          fontSize: 42,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 6,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    textPainter.paint(
-      canvas,
-      Offset(
-        (size.x - textPainter.width) / 2,
-        size.y * 0.28,
-      ),
-    );
   }
 
   @override

@@ -1,11 +1,10 @@
 import 'dart:math';
 
 import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
-import '../bug_out_game.dart';
-
-class StarField extends Component with HasGameReference<BugOutGame> {
+class StarField extends Component with HasGameReference<FlameGame> {
   final List<_Star> _stars = [];
   final Random _random = Random();
 

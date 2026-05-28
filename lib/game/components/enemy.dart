@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
 
 import '../bug_out_game.dart';
@@ -47,6 +48,17 @@ class Enemy extends PositionComponent with HasGameReference<BugOutGame>, Collisi
     anchor = Anchor.center;
     _wobble = _random.nextDouble() * pi * 2;
     add(CircleHitbox(radius: size.x * 0.38));
+
+    scale = Vector2.all(0.2);
+    add(
+      ScaleEffect.to(
+        Vector2.all(1.0),
+        EffectController(
+          duration: kind == EnemyKind.boss ? 0.7 : 0.35,
+          curve: Curves.elasticOut,
+        ),
+      ),
+    );
   }
 
   @override
@@ -148,6 +160,7 @@ class Enemy extends PositionComponent with HasGameReference<BugOutGame>, Collisi
     if (other is Bullet && other.fromPlayer) {
       health -= other.damage;
       other.removeFromParent();
+      game.spawnHitSparks(position);
       if (health <= 0) {
         game.enemyDestroyed(this);
       }
